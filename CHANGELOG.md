@@ -18,6 +18,8 @@ The format is based on [Keep a Changelog][keepachangelog] and this project adher
 - Tasks were stuck in case of an error, the "release" method did not return them to the queue.
 - The "calculateBackoff" method incorrectly took the index "$job->attempts()"
 - The "withHeader" method of the "\Spiral\RoadRunner\Jobs\Task\WritableHeadersInterface" interface expects the type "string|iterable", "int" is passed
+- Fixed the `$ttl` in the `increment` method
+- The `forever` method passed `$seconds` as 0, `Spiral\RoadRunner\KeyValue` summed `timestamp + 0`, and `forever` was not `forever`
 
 [#147]:https://github.com/roadrunner-php/laravel-bridge/issues/147
 
