@@ -60,11 +60,12 @@ final class RoadRunnerStore extends TaggableStore implements LockProvider
 
     public function increment($key, $value = 1)
     {
-        $data = $this->get($this->prefix . $key);
+        $data = $this->get($key);
 
         return tap(((int) $data) + $value, function ($newValue) use ($key): void {
             $ttl = $this->storage->getTtl($this->prefix . $key);
-            $this->storage->set($key, $newValue, $ttl->diff(new \DateTimeImmutable()));
+
+            $this->put($key, $newValue, ($ttl ? $ttl->diff(new \DateTimeImmutable()) : null));
         });
     }
 
@@ -75,7 +76,7 @@ final class RoadRunnerStore extends TaggableStore implements LockProvider
 
     public function forever($key, $value)
     {
-        return $this->put($key, $value, 0);
+        return $this->put($key, $value, null);
     }
 
     public function forget($key)
