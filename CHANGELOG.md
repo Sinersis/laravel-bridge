@@ -20,6 +20,7 @@ The format is based on [Keep a Changelog][keepachangelog] and this project adher
 - The "withHeader" method of the "\Spiral\RoadRunner\Jobs\Task\WritableHeadersInterface" interface expects the type "string|iterable", "int" is passed
 - Fixed the `$ttl` in the `increment` method
 - The `forever` method passed `$seconds` as 0, `Spiral\RoadRunner\KeyValue` summed `timestamp + 0`, and `forever` was not `forever`
+- When using `prefix`, the `many` method returns values with `prefix`
 
 [#147]:https://github.com/roadrunner-php/laravel-bridge/issues/147
 
