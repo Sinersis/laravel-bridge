@@ -188,7 +188,7 @@ final class Server
             $interceptorInstances[] = $this->createInterceptor($interceptor);
         }
 
-        $handler = function (CallContextInterface $ctx) use ($service, $method, $context, $body) {
+        $handler = function (CallContextInterface $_ctx) use ($service, $method, $context, $body) {
             return $service->invoke($method, $context, $body);
         };
 
