@@ -6,6 +6,7 @@ namespace Spiral\RoadRunnerLaravel\Grpc;
 
 use Google\Protobuf\Any;
 use Google\Rpc\Status;
+use Illuminate\Contracts\Container\BindingResolutionException;
 use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunner\GRPC\Context;
 use Spiral\RoadRunner\GRPC\ContextInterface;
@@ -84,7 +85,7 @@ final class Server
                     'Interceptor must be either a class string implementing %s or an instance of %s, %s given',
                     InterceptorInterface::class,
                     InterceptorInterface::class,
-                    is_object($interceptor) ? get_class($interceptor) : gettype($interceptor)
+                    is_object($interceptor) ? get_class($interceptor) : gettype($interceptor),
                 ));
             }
         }
@@ -184,8 +185,8 @@ final class Server
         }
 
         $interceptorInstances = [];
-        foreach ($interceptors as $interceptorClass) {
-            $interceptorInstances[] = $this->createInterceptor($interceptorClass);
+        foreach ($interceptors as $interceptor) {
+            $interceptorInstances[] = $this->createInterceptor($interceptor);
         }
 
         $pipeline = new InterceptorPipeline();
@@ -197,15 +198,20 @@ final class Server
     /**
      * Create interceptor instance using container or direct instantiation.
      *
-     * @param class-string $interceptorClass
+     * @throws BindingResolutionException
      */
-    private function createInterceptor(string $interceptorClass): InterceptorInterface
+    private function createInterceptor(InterceptorInterface|string $interceptor): InterceptorInterface
     {
-        if ($this->container !== null) {
-            return $this->container->make($interceptorClass);
+
+        if ($interceptor instanceof InterceptorInterface) {
+            return $interceptor;
         }
 
-        return new $interceptorClass();
+        if ($this->container !== null) {
+            return $this->container->make($interceptor);
+        }
+
+        return new $interceptor();
     }
 
     private function workerError(WorkerInterface $worker, string $message): void
