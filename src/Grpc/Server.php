@@ -15,7 +15,6 @@ use Spiral\RoadRunner\GRPC\Exception\GRPCException;
 use Spiral\RoadRunner\GRPC\Exception\GRPCExceptionInterface;
 use Spiral\RoadRunner\GRPC\Exception\NotFoundException;
 use Spiral\RoadRunner\GRPC\Exception\ServiceException;
-use Spiral\RoadRunner\GRPC\Internal\CallContext;
 use Spiral\RoadRunner\GRPC\Internal\Json;
 use Spiral\RoadRunner\GRPC\Invoker;
 use Spiral\RoadRunner\GRPC\InvokerInterface;
@@ -26,10 +25,11 @@ use Spiral\RoadRunner\GRPC\ServiceWrapper;
 use Spiral\RoadRunner\GRPC\StatusCode;
 use Spiral\RoadRunner\Payload;
 use Spiral\RoadRunner\Worker;
+use Spiral\Interceptors\Context\CallContext;
+use Spiral\Interceptors\Context\Target;
 use Spiral\RoadRunner\WorkerInterface;
 use Illuminate\Contracts\Container\Container;
 use Spiral\Interceptors\Handler\InterceptorPipeline;
-use Spiral\RoadRunnerLaravel\Grpc\Context\GrpcCallContext;
 use Spiral\RoadRunnerLaravel\Grpc\Handler\GrpcHandler;
 
 /**
@@ -188,16 +188,20 @@ final class Server
         }
 
         $handler = function (CallContextInterface $ctx) use ($service, $method, $context, $body) {
-            if (!$ctx instanceof GrpcCallContext) {
-                throw new \InvalidArgumentException('Expected GrpcCallContext, got ' . get_class($ctx));
-            }
             return $service->invoke($method, $context, $body);
         };
 
         $pipeline = new InterceptorPipeline();
         $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
 
-        return $pipeline->withHandler($handler)->handle(new GrpcCallContext($method, $context, $body));
+        $target = Target::fromPathString($method);
+        $callContext = new CallContext($target, [
+            'method' => $method,
+            'context' => $context,
+            'body' => $body,
+        ]);
+
+        return $pipeline->withHandler($handler)->handle($callContext);
     }
 
     /**

@@ -7,7 +7,6 @@ namespace Spiral\RoadRunnerLaravel\Grpc\Interceptors;
 use Spiral\Interceptors\Context\CallContextInterface;
 use Spiral\Interceptors\HandlerInterface;
 use Spiral\Interceptors\InterceptorInterface;
-use Spiral\RoadRunnerLaravel\Grpc\Context\GrpcCallContext;
 use Psr\Log\LoggerInterface;
 
 class LoggingInterceptor implements InterceptorInterface
@@ -21,20 +20,22 @@ class LoggingInterceptor implements InterceptorInterface
      */
     public function intercept(CallContextInterface $context, HandlerInterface $handler): mixed
     {
-        if (!$context instanceof GrpcCallContext) {
-            return $handler->handle($context);
+        $method = (string) $context->getTarget();
+        
+        // Only log gRPC calls (they have a method in the format 'Service.Method')
+        if (str_contains($method, '.')) {
+            $this->logger->info("gRPC call started: {$method}");
+
+            try {
+                $response = $handler->handle($context);
+                $this->logger->info("gRPC call completed: {$method}");
+                return $response;
+            } catch (\Throwable $e) {
+                $this->logger->error("gRPC call failed: {$method}", ['error' => $e->getMessage()]);
+                throw $e;
+            }
         }
 
-        $method = $context->getMethod();
-        $this->logger->info("gRPC call started: {$method}");
-
-        try {
-            $response = $handler->handle($context);
-            $this->logger->info("gRPC call completed: {$method}");
-            return $response;
-        } catch (\Throwable $e) {
-            $this->logger->error("gRPC call failed: {$method}", ['error' => $e->getMessage()]);
-            throw $e;
-        }
+        return $handler->handle($context);
     }
 }

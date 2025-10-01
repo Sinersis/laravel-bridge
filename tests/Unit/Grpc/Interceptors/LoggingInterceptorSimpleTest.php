@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace Spiral\RoadRunnerLaravel\Tests\Unit\Grpc\Interceptors;
 
 use PHPUnit\Framework\TestCase;
+use Spiral\Interceptors\Context\CallContext;
 use Spiral\Interceptors\Context\CallContextInterface;
+use Spiral\Interceptors\Context\Target;
 use Spiral\Interceptors\HandlerInterface;
 use Spiral\RoadRunner\GRPC\ContextInterface;
-use Spiral\RoadRunnerLaravel\Grpc\Context\GrpcCallContext;
 use Spiral\RoadRunnerLaravel\Grpc\Interceptors\LoggingInterceptor;
 
 final class LoggingInterceptorSimpleTest extends TestCase
@@ -17,7 +18,10 @@ final class LoggingInterceptorSimpleTest extends TestCase
     {
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $handler = $this->createMock(HandlerInterface::class);
-        $nonGrpcContext = $this->createMock(CallContextInterface::class);
+        
+        // Create a non-gRPC context (no dot in the target path)
+        $target = Target::fromPathString('non_grpc_method');
+        $nonGrpcContext = new CallContext($target);
 
         $expectedResponse = 'non-grpc-response';
 
@@ -45,7 +49,13 @@ final class LoggingInterceptorSimpleTest extends TestCase
 
         $method = 'TestService.TestMethod';
         $expectedResponse = 'test-response';
-        $callContext = new GrpcCallContext($method, $grpcContext, 'test-body');
+        
+        $target = Target::fromPathString($method);
+        $callContext = new CallContext($target, [
+            'method' => $method,
+            'context' => $grpcContext,
+            'body' => 'test-body',
+        ]);
 
         // Expect info logs for start and completion
         $logger->expects($this->exactly(2))
@@ -70,7 +80,13 @@ final class LoggingInterceptorSimpleTest extends TestCase
 
         $method = 'TestService.TestMethod';
         $exception = new \RuntimeException('Test error');
-        $callContext = new GrpcCallContext($method, $grpcContext, 'test-body');
+        
+        $target = Target::fromPathString($method);
+        $callContext = new CallContext($target, [
+            'method' => $method,
+            'context' => $grpcContext,
+            'body' => 'test-body',
+        ]);
 
         // Expect info log for start and error log for failure
         $logger->expects($this->once())
