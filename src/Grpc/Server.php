@@ -72,18 +72,26 @@ final class Server
      */
     public function registerService(string $interface, ServiceInterface $service, array $interceptors = []): void
     {
+        $normalizedInterceptors = [];
+
         foreach ($interceptors as $interceptor) {
-            if (!is_subclass_of($interceptor, InterceptorInterface::class)) {
-                throw new ServiceException(
-                    sprintf('Interceptor %s must implement %s', $interceptor, InterceptorInterface::class),
-                );
+            if (is_string($interceptor) && class_exists($interceptor) && is_subclass_of($interceptor, InterceptorInterface::class)) {
+                $normalizedInterceptors[] = $interceptor;
+            } elseif (is_object($interceptor) && $interceptor instanceof InterceptorInterface) {
+                $normalizedInterceptors[] = $interceptor;
+            } else {
+                throw new ServiceException(sprintf(
+                    'Interceptor must be either a class string implementing %s or an instance of %s, %s given',
+                    InterceptorInterface::class,
+                    InterceptorInterface::class,
+                    is_object($interceptor) ? get_class($interceptor) : gettype($interceptor)
+                ));
             }
         }
 
         $service = new ServiceWrapper($this->invoker, $interface, $service);
-
         $this->services[$service->getName()] = $service;
-        $this->interceptors[$service->getName()] = $interceptors;
+        $this->interceptors[$service->getName()] = $normalizedInterceptors;
     }
 
     /**

@@ -215,7 +215,16 @@ return [
     'grpc' => [
         'services' => [
             \App\GRPC\EchoServiceInterface::class => \App\GRPC\EchoService::class,
-        ]
+
+            // Service with specific interceptors
+            \App\GRPC\UserServiceInterface::class => [
+                'service' => \App\GRPC\UserService::class,
+                'interceptors' => [
+                    \App\GRPC\Interceptors\ValidationInterceptor::class,
+                    \App\GRPC\Interceptors\CacheInterceptor::class,
+                ],
+            ],
+        ]    
     ],
 ];
 ```
@@ -261,7 +270,7 @@ return [
 
             // Service with specific interceptors
             \App\GRPC\UserServiceInterface::class => [
-                \App\GRPC\UserService::class,
+                'service' => \App\GRPC\UserService::class,
                 'interceptors' => [
                     \App\GRPC\Interceptors\ValidationInterceptor::class,
                     \App\GRPC\Interceptors\CacheInterceptor::class,

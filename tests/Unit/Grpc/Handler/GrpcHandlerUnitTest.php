@@ -10,31 +10,34 @@ use Spiral\RoadRunner\GRPC\ContextInterface;
 use Spiral\RoadRunner\GRPC\ServiceWrapper;
 use Spiral\RoadRunnerLaravel\Grpc\Context\GrpcCallContext;
 use Spiral\RoadRunnerLaravel\Grpc\Handler\GrpcHandler;
+use Spiral\RoadRunner\GRPC\Invoker;
+use Spiral\RoadRunnerLaravel\Tests\Support\TestServiceInterface;
 
 final class GrpcHandlerUnitTest extends TestCase
 {
     public function testHandleWithInvalidContextThrowsException(): void
     {
-        // Create a minimal test that doesn't require ServiceWrapper construction
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage('Expected GrpcCallContext, got MockObject_CallContextInterface_');
+
+        // Create a mock that implements both interfaces
+        $service = $this->getMockBuilder(TestServiceInterface::class)
+            ->getMock();
+
+        $wrapper = new ServiceWrapper(
+            new Invoker(),
+            TestServiceInterface::class,
+            $service
+        );
+
+        // Create the handler
+        $handler = new GrpcHandler($wrapper);
+
+        // Create an invalid context (not a GrpcCallContext)
         $invalidContext = $this->createMock(CallContextInterface::class);
 
-        // We can't easily mock ServiceWrapper since it's final, so we'll use a simple test
-        // that focuses on the type checking logic
-        $reflection = new \ReflectionClass(GrpcHandler::class);
-        $constructor = $reflection->getConstructor();
-        $serviceWrapperParam = $constructor->getParameters()[0];
-
-        // Verify that the constructor expects ServiceWrapper
-        $this->assertEquals('Spiral\RoadRunner\GRPC\ServiceWrapper', $serviceWrapperParam->getType()->getName());
-
-        // Test that GrpcCallContext is accepted
-        $grpcContext = $this->createMock(ContextInterface::class);
-        $validContext = new GrpcCallContext('TestMethod', $grpcContext, 'body');
-
-        $this->assertInstanceOf(GrpcCallContext::class, $validContext);
-        $this->assertEquals('TestMethod', $validContext->getMethod());
-        $this->assertEquals('body', $validContext->getBody());
-        $this->assertSame($grpcContext, $validContext->getGrpcContext());
+        // This should throw the expected exception
+        $handler->handle($invalidContext);
     }
 
     public function testGrpcCallContextIntegrationWithHandler(): void
