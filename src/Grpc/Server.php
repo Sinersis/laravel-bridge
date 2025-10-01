@@ -30,7 +30,6 @@ use Spiral\Interceptors\Context\Target;
 use Spiral\RoadRunner\WorkerInterface;
 use Illuminate\Contracts\Container\Container;
 use Spiral\Interceptors\Handler\InterceptorPipeline;
-use Spiral\RoadRunnerLaravel\Grpc\Handler\GrpcHandler;
 
 /**
  * Manages group of services and communication with RoadRunner server.
@@ -44,7 +43,7 @@ final class Server
     /** @var ServiceWrapper[] */
     private array $services = [];
 
-    /** @var class-string<InterceptorInterface>[] */
+    /** @var list<class-string<InterceptorInterface>|InterceptorInterface> */
     private array $interceptors = [];
 
     /**
@@ -52,9 +51,9 @@ final class Server
      */
     public function __construct(
         private readonly \Laravel\Octane\Contracts\Worker $worker,
-        private readonly InvokerInterface $invoker = new Invoker(),
-        private readonly array $options = [],
-        private readonly ?Container $container = null,
+        private readonly InvokerInterface                 $invoker = new Invoker(),
+        private readonly array                            $options = [],
+        private readonly ?Container                       $container = null,
     ) {}
 
     /**
@@ -70,6 +69,7 @@ final class Server
      * @param class-string<T> $interface Generated service interface.
      * @param T $service Must implement interface.
      * @param array<class-string<InterceptorInterface>> $interceptors for this service. Must implement InterceptorInterface.
+     *
      * @throws ServiceException
      */
     public function registerService(string $interface, ServiceInterface $service, array $interceptors = []): void
@@ -91,8 +91,8 @@ final class Server
             }
         }
 
-        $service = new ServiceWrapper($this->invoker, $interface, $service);
-        $this->services[$service->getName()] = $service;
+        $service                                 = new ServiceWrapper($this->invoker, $interface, $service);
+        $this->services[$service->getName()]     = $service;
         $this->interceptors[$service->getName()] = $normalizedInterceptors;
     }
 
@@ -111,7 +111,7 @@ final class Server
             }
 
             $this->worker->handleTask(function () use ($request, $worker, $finalize): void {
-                $responseHeaders = new ResponseHeaders();
+                $responseHeaders  = new ResponseHeaders();
                 $responseTrailers = new ResponseTrailers();
 
                 try {
@@ -121,7 +121,7 @@ final class Server
                         \array_merge(
                             $call->context,
                             [
-                                ResponseHeaders::class => $responseHeaders,
+                                ResponseHeaders::class  => $responseHeaders,
                                 ResponseTrailers::class => $responseTrailers,
                             ],
                         ),
@@ -167,6 +167,7 @@ final class Server
      *
      * @param class-string<ServiceInterface> $serviceName
      * @param non-empty-string $method
+     *
      * @throws GRPCException
      */
     protected function invoke(string $serviceName, string $method, ContextInterface $context, string $body): string
@@ -175,7 +176,7 @@ final class Server
             throw NotFoundException::create("Service `{$serviceName}` not found.", StatusCode::NOT_FOUND);
         }
 
-        $service = $this->services[$serviceName];
+        $service      = $this->services[$serviceName];
         $interceptors = $this->interceptors[$serviceName] ?? [];
 
         if (empty($interceptors)) {
@@ -194,11 +195,11 @@ final class Server
         $pipeline = new InterceptorPipeline();
         $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
 
-        $target = Target::fromPathString($method);
+        $target      = Target::fromPathString($method);
         $callContext = new CallContext($target, [
-            'method' => $method,
+            'method'  => $method,
             'context' => $context,
-            'body' => $body,
+            'body'    => $body,
         ]);
 
         return $pipeline->withHandler($handler)->handle($callContext);
@@ -206,8 +207,8 @@ final class Server
 
     /**
      * Create interceptor instance using container or direct instantiation.
+     * Converts resolution errors into ServiceException for proper gRPC reporting.
      *
-     * @throws BindingResolutionException
      */
     private function createInterceptor(InterceptorInterface|string $interceptor): InterceptorInterface
     {
@@ -215,12 +216,18 @@ final class Server
         if ($interceptor instanceof InterceptorInterface) {
             return $interceptor;
         }
+        try {
+            if ($this->container !== null) {
+                return $this->container->make($interceptor);
+            }
 
-        if ($this->container !== null) {
-            return $this->container->make($interceptor);
+            /** @psalm-suppress InvalidStringClass */
+            return new $interceptor();
+        } catch (BindingResolutionException $e) {
+            throw new ServiceException(\sprintf('Failed to resolve interceptor %s: %s', $interceptor, $e->getMessage()), StatusCode::INTERNAL, $e);
+        } catch (\Throwable $e) {
+            throw new ServiceException(\sprintf('Failed to instantiate interceptor %s: %s', $interceptor, $e->getMessage()), StatusCode::INTERNAL, $e);
         }
-
-        return new $interceptor();
     }
 
     private function workerError(WorkerInterface $worker, string $message): void
@@ -239,7 +246,7 @@ final class Server
     private function createGrpcError(GRPCExceptionInterface $e): string
     {
         $status = new Status([
-            'code' => $e->getCode(),
+            'code'    => $e->getCode(),
             'message' => $e->getMessage(),
             'details' => \array_map(
                 static function ($detail) {
