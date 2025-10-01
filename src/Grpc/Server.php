@@ -7,6 +7,7 @@ namespace Spiral\RoadRunnerLaravel\Grpc;
 use Google\Protobuf\Any;
 use Google\Rpc\Status;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Spiral\Interceptors\Context\CallContextInterface;
 use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunner\GRPC\Context;
 use Spiral\RoadRunner\GRPC\ContextInterface;
@@ -177,11 +178,8 @@ final class Server
         $service = $this->services[$serviceName];
         $interceptors = $this->interceptors[$serviceName] ?? [];
 
-        $handler = new GrpcHandler($service);
-        $callContext = new GrpcCallContext($method, $context, $body);
-
         if (empty($interceptors)) {
-            return $handler->handle($callContext);
+            return $service->invoke($method, $context, $body);
         }
 
         $interceptorInstances = [];
@@ -189,10 +187,17 @@ final class Server
             $interceptorInstances[] = $this->createInterceptor($interceptor);
         }
 
+        $handler = function (CallContextInterface $ctx) use ($service, $method, $context, $body) {
+            if (!$ctx instanceof GrpcCallContext) {
+                throw new \InvalidArgumentException('Expected GrpcCallContext, got ' . get_class($ctx));
+            }
+            return $service->invoke($method, $context, $body);
+        };
+
         $pipeline = new InterceptorPipeline();
         $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
 
-        return $pipeline->withHandler($handler)->handle($callContext);
+        return $pipeline->withHandler($handler)->handle(new GrpcCallContext($method, $context, $body));
     }
 
     /**

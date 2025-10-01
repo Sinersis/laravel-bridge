@@ -39,7 +39,6 @@ final class GrpcCallContext implements CallContextInterface
     public function withTarget(TargetInterface $target): static
     {
         $clone = clone $this;
-        // Target is immutable for gRPC context
         return $clone;
     }
 
