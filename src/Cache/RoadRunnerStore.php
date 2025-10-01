@@ -36,7 +36,7 @@ final class RoadRunnerStore extends TaggableStore implements LockProvider
     {
         $prefixedKeys = \array_map(fn($key) => $this->prefix . $key, $keys);
 
-        return array_combine($keys, \iterator_to_array($this->storage->getMultiple($prefixedKeys)));
+        return \array_combine($keys, \iterator_to_array($this->storage->getMultiple($prefixedKeys)));
     }
 
     public function put($key, $value, $seconds)
