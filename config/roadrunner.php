@@ -20,7 +20,7 @@ return [
 
             // Service with specific interceptors
             // AnotherGreeterInterface::class => [
-            //     AnotherGreeterService::class,
+            //     'service'      => AnotherGreeterService::class,
             //     'interceptors' => [
             //         AnotherGreeterServiceInterceptor::class,
             //     ],

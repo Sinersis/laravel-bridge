@@ -6,6 +6,7 @@ namespace Spiral\RoadRunnerLaravel\Grpc;
 
 use Google\Protobuf\Any;
 use Google\Rpc\Status;
+use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunner\GRPC\Context;
 use Spiral\RoadRunner\GRPC\ContextInterface;
 use Spiral\RoadRunner\GRPC\Exception\GRPCException;
@@ -24,6 +25,10 @@ use Spiral\RoadRunner\GRPC\StatusCode;
 use Spiral\RoadRunner\Payload;
 use Spiral\RoadRunner\Worker;
 use Spiral\RoadRunner\WorkerInterface;
+use Illuminate\Contracts\Container\Container;
+use Spiral\Interceptors\Handler\InterceptorPipeline;
+use Spiral\RoadRunnerLaravel\Grpc\Context\GrpcCallContext;
+use Spiral\RoadRunnerLaravel\Grpc\Handler\GrpcHandler;
 
 /**
  * Manages group of services and communication with RoadRunner server.
@@ -37,7 +42,7 @@ final class Server
     /** @var ServiceWrapper[] */
     private array $services = [];
 
-    /** @var class-string<GrpcServerInterceptorInterface>[] */
+    /** @var class-string<InterceptorInterface>[] */
     private array $interceptors = [];
 
     /**
@@ -47,6 +52,7 @@ final class Server
         private readonly \Laravel\Octane\Contracts\Worker $worker,
         private readonly InvokerInterface $invoker = new Invoker(),
         private readonly array $options = [],
+        private readonly ?Container $container = null,
     ) {}
 
     /**
@@ -61,16 +67,15 @@ final class Server
      *
      * @param class-string<T> $interface Generated service interface.
      * @param T $service Must implement interface.
-     * @param array<class-string<GrpcServerInterceptorInterface>> $interceptors for this service. Must implement
-     * GrpcServerInterceptorInterface.
+     * @param array<class-string<InterceptorInterface>> $interceptors for this service. Must implement InterceptorInterface.
      * @throws ServiceException
      */
     public function registerService(string $interface, ServiceInterface $service, array $interceptors = []): void
     {
         foreach ($interceptors as $interceptor) {
-            if (!is_subclass_of($interceptor, GrpcServerInterceptorInterface::class)) {
+            if (!is_subclass_of($interceptor, InterceptorInterface::class)) {
                 throw new ServiceException(
-                    sprintf('Interceptor %s must implement %s', $interceptor, GrpcServerInterceptorInterface::class)
+                    sprintf('Interceptor %s must implement %s', $interceptor, InterceptorInterface::class),
                 );
             }
         }
@@ -163,17 +168,36 @@ final class Server
         $service = $this->services[$serviceName];
         $interceptors = $this->interceptors[$serviceName] ?? [];
 
-        $handler = function ($method, $context, $body) use ($service) {
-            return $service->invoke($method, $context, $body);
-        };
+        $handler = new GrpcHandler($service);
+        $callContext = new GrpcCallContext($method, $context, $body);
 
-        $pipeline = array_reduce(
-            array_reverse($interceptors),
-            fn($next, $interceptor) => fn($method, $context, $body) => (new $interceptor)->intercept($method, $context, $body, $next),
-            $handler
-        );
+        if (empty($interceptors)) {
+            return $handler->handle($callContext);
+        }
 
-        return $pipeline($method, $context, $body);
+        $interceptorInstances = [];
+        foreach ($interceptors as $interceptorClass) {
+            $interceptorInstances[] = $this->createInterceptor($interceptorClass);
+        }
+
+        $pipeline = new InterceptorPipeline();
+        $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
+
+        return $pipeline->withHandler($handler)->handle($callContext);
+    }
+
+    /**
+     * Create interceptor instance using container or direct instantiation.
+     *
+     * @param class-string $interceptorClass
+     */
+    private function createInterceptor(string $interceptorClass): InterceptorInterface
+    {
+        if ($this->container !== null) {
+            return $this->container->make($interceptorClass);
+        }
+
+        return new $interceptorClass();
     }
 
     private function workerError(WorkerInterface $worker, string $message): void
