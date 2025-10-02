@@ -44,7 +44,10 @@ final class Server
     /** @var ServiceWrapper[] */
     private array $services = [];
 
-    /** @var list<class-string<InterceptorInterface>|InterceptorInterface> */
+    /**
+     * Interceptors list per service where key is service name
+     * @var array<non-empty-string, list<class-string<InterceptorInterface>|InterceptorInterface>>
+     */
     private array $interceptors = [];
 
     /**
