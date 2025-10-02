@@ -43,7 +43,8 @@
         "spiral/roadrunner-worker": "^3.0",
         "temporal/sdk": "^2.0",
         "internal/dload": "^1.1",
-        "spiral/grpc-client": "^1.0.0-rc1"
+        "spiral/grpc-client": "^1.0.0-rc1",
+        "roadrunner/psr-logger": "^1.0"
     },
     "require-dev": {
         "laravel/framework": "^12.0",
@@ -93,7 +94,8 @@
                 "Spiral\\RoadRunnerLaravel\\ServiceProvider",
                 "Spiral\\RoadRunnerLaravel\\Queue\\QueueServiceProvider",
                 "Spiral\\RoadRunnerLaravel\\Cache\\CacheServiceProvider",
-                "Spiral\\RoadRunnerLaravel\\Temporal\\TemporalServiceProvider"
+                "Spiral\\RoadRunnerLaravel\\Temporal\\TemporalServiceProvider",
+                "Spiral\\RoadRunnerLaravel\\Logging\\LoggerServiceProvider"
             ]
         }
     },

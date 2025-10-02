@@ -10,6 +10,10 @@ use Spiral\RoadRunnerLaravel\Temporal\TemporalWorker;
 use Temporal\Worker\WorkerFactoryInterface as TemporalWorkerFactoryInterface;
 
 return [
+    'logger' => [
+        'relay_dsn' => env('ROADRUNNER_RELAY_DSN', 'tcp://127.0.0.1:6001'),
+    ],
+
     'cache' => [
         'storage' => 'cache',
     ],
