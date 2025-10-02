@@ -8,6 +8,7 @@ use Google\Protobuf\Any;
 use Google\Rpc\Status;
 use Illuminate\Contracts\Container\BindingResolutionException;
 use Spiral\Interceptors\Context\CallContextInterface;
+use Spiral\Interceptors\Handler\CallableHandler;
 use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunner\GRPC\Context;
 use Spiral\RoadRunner\GRPC\ContextInterface;
@@ -23,9 +24,10 @@ use Spiral\RoadRunner\GRPC\ResponseTrailers;
 use Spiral\RoadRunner\GRPC\ServiceInterface;
 use Spiral\RoadRunner\GRPC\ServiceWrapper;
 use Spiral\RoadRunner\GRPC\StatusCode;
+use Spiral\RoadRunner\GRPC\Internal\CallContext;
 use Spiral\RoadRunner\Payload;
 use Spiral\RoadRunner\Worker;
-use Spiral\Interceptors\Context\CallContext;
+use Spiral\Interceptors\Context\CallContext as InterceptorCallContext;
 use Spiral\Interceptors\Context\Target;
 use Spiral\RoadRunner\WorkerInterface;
 use Illuminate\Contracts\Container\Container;
@@ -196,13 +198,13 @@ final class Server
         $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
 
         $target      = Target::fromPathString($method);
-        $callContext = new CallContext($target, [
+        $callContext = new InterceptorCallContext($target, [
             'method'  => $method,
             'context' => $context,
             'body'    => $body,
         ]);
 
-        return $pipeline->withHandler($handler)->handle($callContext);
+        return $pipeline->withHandler(new CallableHandler())->handle($callContext);
     }
 
     /**
