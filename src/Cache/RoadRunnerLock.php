@@ -25,6 +25,10 @@ final class RoadRunnerLock extends Lock
      */
     public function acquire()
     {
+        if ($this->storage->has($this->name)) {
+            return false;
+        }
+
         return $this->storage->set(
             $this->name,
             $this->owner,
