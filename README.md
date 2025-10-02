@@ -17,6 +17,7 @@ This package provides complete Laravel integration with RoadRunner, offering:
 - Support for HTTP and other RoadRunner plugins like gRPC, Queue, KeyValue, and more.
 - [Temporal](https://temporal.io/) integration
 - Full RoadRunner configuration control
+- PSR-3 compatible logging with RoadRunner integration
 
 ![RoadRunner](https://github.com/user-attachments/assets/609d2e29-b6af-478b-b350-1d27b77ed6fb)
 
@@ -36,6 +37,7 @@ This package provides complete Laravel integration with RoadRunner, offering:
   - [gRPC Plugin](#grpc-plugin)
   - [gRPC Client](#grpc-client)
   - [Temporal](#temporal)
+- [Logging](#logging)
 - [Custom Workers](#custom-workers)
 - [Support](#support)
 - [License](#license)
@@ -330,6 +332,136 @@ Start the Temporal dev server:
 - [PHP SDK docs](https://docs.temporal.io/develop/php/)
 - [Code samples](https://github.com/temporalio/samples-php)
 - [Taxi service sample](https://github.com/butschster/podlodka-taxi-service)
+
+## Logging
+
+The RoadRunner Laravel Bridge provides PSR-3 compatible logging with RoadRunner integration. The logger uses RPC calls to send logs to RoadRunner's centralized logging system, providing proper log level control and structured logging support.
+
+### Configuration
+
+The logger configuration is available in `config/roadrunner.php`:
+
+```php
+return [
+    // ... other configuration
+    'logger' => [
+        'relay_dsn' => env('ROADRUNNER_RELAY_DSN', 'tcp://127.0.0.1:6001'),
+    ],
+];
+```
+
+You can customize the RoadRunner relay connection by setting the `ROADRUNNER_RELAY_DSN` environment variable.
+
+### Usage
+
+The PSR-3 compatible logger is available throughout your Laravel application via dependency injection:
+
+#### Dependency Injection (Recommended)
+
+```php
+use Psr\Log\LoggerInterface;
+
+class YourService
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function doSomething()
+    {
+        $this->logger->info('Operation started');
+
+        try {
+            // Your logic here
+            $this->logger->info('Operation completed');
+        } catch (\Exception $e) {
+            $this->logger->error('Operation failed', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+}
+```
+
+#### Service Container Resolution
+
+```php
+// Get logger from container
+$logger = app(LoggerInterface::class);
+// Or using the alias
+$logger = app('roadrunner.logger');
+
+$logger->info('Message', ['context' => 'data']);
+```
+
+#### Available Log Methods
+
+```php
+use Psr\Log\LoggerInterface;
+
+$logger->emergency('System is unusable');
+$logger->alert('Action must be taken immediately');
+$logger->critical('Critical conditions');
+$logger->error('Runtime errors');
+$logger->warning('Warning conditions');
+$logger->notice('Normal but significant condition');
+$logger->info('Informational messages');
+$logger->debug('Debug-level messages');
+```
+
+#### Structured Logging with Context
+
+```php
+$logger->info('User logged in', [
+    'user_id' => 123,
+    'ip_address' => '192.168.1.1',
+    'user_agent' => 'Mozilla/5.0...',
+    'timestamp' => now()->toISOString()
+]);
+
+$logger->error('Database connection failed', [
+    'database' => 'users',
+    'host' => 'db.example.com',
+    'exception' => $exception->getMessage(),
+    'attempt' => 3
+]);
+```
+
+#### Using in Controllers
+
+```php
+use Psr\Log\LoggerInterface;
+
+class UserController extends Controller
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function login(Request $request)
+    {
+        $this->logger->info('Login attempt', [
+            'email' => $request->email,
+            'ip' => $request->ip()
+        ]);
+
+        // Login logic
+
+        $this->logger->info('Login successful', [
+            'user_id' => $user->id,
+            'session_id' => session()->getId()
+        ]);
+    }
+}
+```
+
+### Benefits Over Laravel's Default Logger
+
+- **Log Level Control**: Proper level filtering via RPC calls to RoadRunner
+- **Context Support**: Preserves structured context data (arrays, objects)
+- **Centralized Logging**: Integration with RoadRunner's logging system
+- **Performance**: More efficient than STDERR logging
 
 ## Custom Workers
 
