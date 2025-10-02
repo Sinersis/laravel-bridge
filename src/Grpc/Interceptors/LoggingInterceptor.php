@@ -31,7 +31,7 @@ class LoggingInterceptor implements InterceptorInterface
                 $this->logger->info("gRPC call completed: {$method}");
                 return $response;
             } catch (\Throwable $e) {
-                $this->logger->error("gRPC call failed: {$method}", ['error' => $e->getMessage()]);
+                $this->logger->error("gRPC call failed: {$method}", ['error' => $e]);
                 throw $e;
             }
         }
