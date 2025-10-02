@@ -21,7 +21,7 @@ class LoggingInterceptor implements InterceptorInterface
     public function intercept(CallContextInterface $context, HandlerInterface $handler): mixed
     {
         $method = (string) $context->getTarget();
-        
+
         // Only log gRPC calls (they have a method in the format 'Service.Method')
         if (str_contains($method, '.')) {
             $this->logger->info("gRPC call started: {$method}");

@@ -69,7 +69,7 @@ final class Server
      *
      * @param class-string<T> $interface Generated service interface.
      * @param T $service Must implement interface.
-     * @param array<class-string<InterceptorInterface>> $interceptors for this service. Must implement InterceptorInterface.
+     * @param array<InterceptorInterface|class-string<InterceptorInterface>> $interceptors for this service. Must implement InterceptorInterface.
      *
      * @throws ServiceException
      */

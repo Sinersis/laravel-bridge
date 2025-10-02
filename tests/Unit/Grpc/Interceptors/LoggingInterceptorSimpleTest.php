@@ -6,7 +6,6 @@ namespace Spiral\RoadRunnerLaravel\Tests\Unit\Grpc\Interceptors;
 
 use PHPUnit\Framework\TestCase;
 use Spiral\Interceptors\Context\CallContext;
-use Spiral\Interceptors\Context\CallContextInterface;
 use Spiral\Interceptors\Context\Target;
 use Spiral\Interceptors\HandlerInterface;
 use Spiral\RoadRunner\GRPC\ContextInterface;
@@ -18,7 +17,7 @@ final class LoggingInterceptorSimpleTest extends TestCase
     {
         $logger = $this->createMock(\Psr\Log\LoggerInterface::class);
         $handler = $this->createMock(HandlerInterface::class);
-        
+
         // Create a non-gRPC context (no dot in the target path)
         $target = Target::fromPathString('non_grpc_method');
         $nonGrpcContext = new CallContext($target);
@@ -49,7 +48,7 @@ final class LoggingInterceptorSimpleTest extends TestCase
 
         $method = 'TestService.TestMethod';
         $expectedResponse = 'test-response';
-        
+
         $target = Target::fromPathString($method);
         $callContext = new CallContext($target, [
             'method' => $method,
@@ -80,7 +79,7 @@ final class LoggingInterceptorSimpleTest extends TestCase
 
         $method = 'TestService.TestMethod';
         $exception = new \RuntimeException('Test error');
-        
+
         $target = Target::fromPathString($method);
         $callContext = new CallContext($target, [
             'method' => $method,
