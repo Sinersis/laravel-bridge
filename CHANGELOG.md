@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog][keepachangelog] and this project adher
 - Fixed the `$ttl` in the `increment` method
 - The `forever` method passed `$seconds` as 0, `Spiral\RoadRunner\KeyValue` summed `timestamp + 0`, and `forever` was not `forever`
 - When using `prefix`, the `many` method returns values with `prefix`
+- The `Spiral\RoadRunner\KeyValue\Cache` class will set the value regardless of whether it exists or not - it always resolves the lock, you need to check for the existence of the key using the `has` method
 
 [#147]:https://github.com/roadrunner-php/laravel-bridge/issues/147
 
