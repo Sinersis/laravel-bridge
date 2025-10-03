@@ -335,26 +335,11 @@ Start the Temporal dev server:
 
 ## Logging
 
-The RoadRunner Laravel Bridge provides PSR-3 compatible logging with RoadRunner integration. The logger uses RPC calls to send logs to RoadRunner's centralized logging system, providing proper log level control and structured logging support.
-
-### Configuration
-
-The logger configuration is available in `config/roadrunner.php`:
-
-```php
-return [
-    // ... other configuration
-    'logger' => [
-        'relay_dsn' => env('ROADRUNNER_RELAY_DSN', 'tcp://127.0.0.1:6001'),
-    ],
-];
-```
-
-You can customize the RoadRunner relay connection by setting the `ROADRUNNER_RELAY_DSN` environment variable.
+The RoadRunner PSR Logger provides PSR-3 compatible logging with RoadRunner integration. The logger uses RPC calls to send logs to RoadRunner's centralized logging system, providing proper log level control and structured context support.
 
 ### Usage
 
-The PSR-3 compatible logger is available throughout your Laravel application via dependency injection:
+The RoadRunner PSR Logger is available throughout your application via dependency injection:
 
 #### Dependency Injection (Recommended)
 
@@ -395,73 +380,8 @@ $logger = app('roadrunner.logger');
 $logger->info('Message', ['context' => 'data']);
 ```
 
-#### Available Log Methods
-
-```php
-use Psr\Log\LoggerInterface;
-
-$logger->emergency('System is unusable');
-$logger->alert('Action must be taken immediately');
-$logger->critical('Critical conditions');
-$logger->error('Runtime errors');
-$logger->warning('Warning conditions');
-$logger->notice('Normal but significant condition');
-$logger->info('Informational messages');
-$logger->debug('Debug-level messages');
-```
-
-#### Structured Logging with Context
-
-```php
-$logger->info('User logged in', [
-    'user_id' => 123,
-    'ip_address' => '192.168.1.1',
-    'user_agent' => 'Mozilla/5.0...',
-    'timestamp' => now()->toISOString()
-]);
-
-$logger->error('Database connection failed', [
-    'database' => 'users',
-    'host' => 'db.example.com',
-    'exception' => $exception->getMessage(),
-    'attempt' => 3
-]);
-```
-
-#### Using in Controllers
-
-```php
-use Psr\Log\LoggerInterface;
-
-class UserController extends Controller
-{
-    public function __construct(
-        private LoggerInterface $logger
-    ) {}
-
-    public function login(Request $request)
-    {
-        $this->logger->info('Login attempt', [
-            'email' => $request->email,
-            'ip' => $request->ip()
-        ]);
-
-        // Login logic
-
-        $this->logger->info('Login successful', [
-            'user_id' => $user->id,
-            'session_id' => session()->getId()
-        ]);
-    }
-}
-```
-
-### Benefits Over Laravel's Default Logger
-
-- **Log Level Control**: Proper level filtering via RPC calls to RoadRunner
-- **Context Support**: Preserves structured context data (arrays, objects)
-- **Centralized Logging**: Integration with RoadRunner's logging system
-- **Performance**: More efficient than STDERR logging
+#### Useful Links
+- [RoadRunner PSR Logger](https://github.com/roadrunner-php/psr-logger)
 
 ## Custom Workers
 
