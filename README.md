@@ -17,6 +17,7 @@ This package provides complete Laravel integration with RoadRunner, offering:
 - Support for HTTP and other RoadRunner plugins like gRPC, Queue, KeyValue, and more.
 - [Temporal](https://temporal.io/) integration
 - Full RoadRunner configuration control
+- PSR-3 compatible logging with RoadRunner integration
 
 ![RoadRunner](https://github.com/user-attachments/assets/609d2e29-b6af-478b-b350-1d27b77ed6fb)
 
@@ -36,6 +37,7 @@ This package provides complete Laravel integration with RoadRunner, offering:
   - [gRPC Plugin](#grpc-plugin)
   - [gRPC Client](#grpc-client)
   - [Temporal](#temporal)
+- [Logging](#logging)
 - [Custom Workers](#custom-workers)
 - [Support](#support)
 - [License](#license)
@@ -330,6 +332,56 @@ Start the Temporal dev server:
 - [PHP SDK docs](https://docs.temporal.io/develop/php/)
 - [Code samples](https://github.com/temporalio/samples-php)
 - [Taxi service sample](https://github.com/butschster/podlodka-taxi-service)
+
+## Logging
+
+The RoadRunner PSR Logger provides PSR-3 compatible logging with RoadRunner integration. The logger uses RPC calls to send logs to RoadRunner's centralized logging system, providing proper log level control and structured context support.
+
+### Usage
+
+The RoadRunner PSR Logger is available throughout your application via dependency injection:
+
+#### Dependency Injection (Recommended)
+
+```php
+use Psr\Log\LoggerInterface;
+
+class YourService
+{
+    public function __construct(
+        private LoggerInterface $logger
+    ) {}
+
+    public function doSomething()
+    {
+        $this->logger->info('Operation started');
+
+        try {
+            // Your logic here
+            $this->logger->info('Operation completed');
+        } catch (\Exception $e) {
+            $this->logger->error('Operation failed', [
+                'exception' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+        }
+    }
+}
+```
+
+#### Service Container Resolution
+
+```php
+// Get logger from container
+$logger = app(LoggerInterface::class);
+// Or using the alias
+$logger = app('roadrunner.logger');
+
+$logger->info('Message', ['context' => 'data']);
+```
+
+#### Useful Links
+- [RoadRunner PSR Logger](https://github.com/roadrunner-php/psr-logger)
 
 ## Custom Workers
 
