@@ -9,7 +9,6 @@ use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunnerLaravel\OctaneWorker;
 use Spiral\RoadRunnerLaravel\WorkerInterface;
 use Spiral\RoadRunnerLaravel\WorkerOptionsInterface;
-use Spiral\RoadRunner\GRPC\Invoker;
 use Spiral\RoadRunner\Worker;
 
 final class GrpcWorker implements WorkerInterface

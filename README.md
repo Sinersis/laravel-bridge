@@ -224,33 +224,35 @@ return [
                     \App\GRPC\Interceptors\CacheInterceptor::class,
                 ],
             ],
-        ]    
+        ]
     ],
 ];
 ```
 
 #### gRPC Server Interceptors
 
-Create your interceptor by implementing `Spiral\RoadRunnerLaravel\Grpc\GrpcServerInterceptorInterface`:
+Create your interceptor by implementing `Spiral\Interceptors\InterceptorInterface`:
 
 ```php
 <?php
 
 namespace App\GRPC\Interceptors;
 
-use Spiral\RoadRunnerLaravel\Grpc\GrpcServerInterceptorInterface;
-use Spiral\RoadRunner\GRPC\ContextInterface;
+use Spiral\Interceptors\Context\CallContextInterface;
+use Spiral\Interceptors\HandlerInterface;
+use Spiral\Interceptors\InterceptorInterface;
 
-class LoggingInterceptor implements GrpcServerInterceptorInterface
+class LoggingInterceptor implements InterceptorInterface
 {
-    public function intercept(string $method, ContextInterface $context, string $body, callable $next)
+    public function intercept(CallContextInterface $context, HandlerInterface $handler): mixed
     {
+        $method = $context->getTarget()->getPath();
         \Log::info("gRPC call: {$method}");
-        
-        $response = $next($method, $context, $body);
-        
+
+        $response = $handler->handle($context);
+
         \Log::info("gRPC response: {$method}");
-        
+
         return $response;
     }
 }
@@ -285,6 +287,81 @@ return [
     ],
 ];
 ```
+
+##### Using Attribute-Based Interceptors
+
+For additional flexibility and convenience, you can use the `AttributesInterceptor` to apply interceptors via PHP attributes directly on your service classes and methods. This allows you to define which interceptors should be applied at a more granular level.
+
+To enable attribute-based interceptors, add the `AttributesInterceptor` to your global interceptors list:
+
+```php
+'interceptors' => [
+    // ... other global interceptors before
+    \Spiral\RoadRunnerLaravel\Grpc\Interceptor\AttributesInterceptor::class,
+    // ... other global interceptors after
+],
+```
+
+Then, create interceptors that can be used as attributes:
+
+```php
+<?php
+
+namespace App\GRPC\Interceptors;
+
+use Spiral\Interceptors\Context\CallContextInterface;
+use Spiral\Interceptors\HandlerInterface;
+use Spiral\Interceptors\InterceptorInterface;
+use Attribute;
+
+#[Attribute(Attribute::TARGET_CLASS | Attribute::TARGET_METHOD)]
+class RoleInterceptor implements InterceptorInterface
+{
+    public function __construct(
+        private readonly string $role,
+    ) {}
+
+    public function intercept(CallContextInterface $context, HandlerInterface $handler): mixed
+    {
+        // Check user role
+        if (!$this->checkRole($this->role)) {
+            throw new \RuntimeException('Access denied');
+        }
+
+        return $handler->handle($context);
+    }
+}
+```
+
+Apply interceptors to your gRPC service classes or methods:
+
+```php
+<?php
+
+namespace App\GRPC;
+
+use App\GRPC\Interceptors\LoggingInterceptor;
+use App\GRPC\Interceptors\AuthInterceptor;
+use App\GRPC\Interceptors\RoleInterceptor;
+
+#[LoggingInterceptor]
+#[AuthInterceptor]
+class UserService implements UserServiceInterface
+{
+    #[RoleInterceptor('admin')]
+    public function DeleteUser(GRPC\ContextInterface $ctx, DeleteUserRequest $in): DeleteUserResponse
+    {
+        // Implementation - will use class-level + method-level interceptors
+    }
+
+    public function GetUser(GRPC\ContextInterface $ctx, GetUserRequest $in): GetUserResponse
+    {
+        // Implementation - will use only class-level interceptors
+    }
+}
+```
+
+Interceptors are applied in order: first class-level attributes, then method-level attributes.
 
 #### gRPC Client Usage
 
@@ -464,6 +541,75 @@ return [
 
 The key in the `workers` array should match the value of the `RR_MODE` environment variable
 set by the RoadRunner server for your plugin.
+
+### Example: Centrifugo Worker
+
+Here's an example of a custom worker for the [Centrifugo](https://docs.roadrunner.dev/docs/plugins/centrifuge) plugin:
+
+```php
+namespace App\Workers;
+
+use Spiral\RoadRunnerLaravel\WorkerInterface;
+use Spiral\RoadRunnerLaravel\WorkerOptionsInterface;
+use Spiral\RoadRunner\Centrifugo\CentrifugoWorker as RRCentrifugoWorker;
+use Spiral\RoadRunner\Centrifugo\CentrifugoWorkerInterface;
+
+class CentrifugoWorker implements WorkerInterface
+{
+    public function start(WorkerOptionsInterface $options): void
+    {
+        $worker = RRCentrifugoWorker::create();
+
+        $worker->onConnect(function (CentrifugoWorkerInterface $worker, string $client, array $request): array {
+            // Handle client connection
+            $app = $options->getAppContainer();
+
+            // Your connection handling logic
+
+            return ['status' => 200];
+        });
+
+        $worker->onSubscribe(function (CentrifugoWorkerInterface $worker, string $client, array $request): array {
+            // Handle client subscription
+            $app = $options->getAppContainer();
+
+            // Your subscription handling logic
+
+            return ['status' => 200];
+        });
+
+        $worker->onPublish(function (CentrifugoWorkerInterface $worker, string $client, array $request): array {
+            // Handle client publish
+            $app = $options->getAppContainer();
+
+            // Your publish handling logic
+
+            return ['status' => 200];
+        });
+
+        $worker->start();
+    }
+}
+```
+
+Then register it in your configuration:
+
+```php
+return [
+    'workers' => [
+        // ... other workers
+        'centrifugo' => \App\Workers\CentrifugoWorker::class,
+    ],
+];
+```
+
+And update your `.rr.yaml` with the Centrifugo plugin configuration:
+
+```yaml
+centrifugo:
+  address: "tcp://localhost:8000"
+  api_key: "your-api-key"
+```
 
 ## Support
 

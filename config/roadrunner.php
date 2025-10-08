@@ -28,6 +28,7 @@ return [
         ],
         // Global interceptors - applied to all services
         'interceptors' => [
+            // \Spiral\RoadRunnerLaravel\Grpc\Interceptor\AttributesInterceptor::class,
             // AllServiceInterceptor::class,
         ],
         'clients' => [
