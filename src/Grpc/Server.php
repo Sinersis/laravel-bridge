@@ -7,6 +7,7 @@ namespace Spiral\RoadRunnerLaravel\Grpc;
 use Google\Protobuf\Any;
 use Google\Rpc\Status;
 use Illuminate\Contracts\Container\BindingResolutionException;
+use Psr\Container\ContainerInterface;
 use Spiral\Interceptors\Handler\CallableHandler;
 use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunner\GRPC\Context;
@@ -16,8 +17,6 @@ use Spiral\RoadRunner\GRPC\Exception\GRPCExceptionInterface;
 use Spiral\RoadRunner\GRPC\Exception\NotFoundException;
 use Spiral\RoadRunner\GRPC\Exception\ServiceException;
 use Spiral\RoadRunner\GRPC\Internal\Json;
-use Spiral\RoadRunner\GRPC\Invoker;
-use Spiral\RoadRunner\GRPC\InvokerInterface;
 use Spiral\RoadRunner\GRPC\ResponseHeaders;
 use Spiral\RoadRunner\GRPC\ResponseTrailers;
 use Spiral\RoadRunner\GRPC\ServiceInterface;
@@ -29,7 +28,6 @@ use Spiral\RoadRunner\Worker;
 use Spiral\Interceptors\Context\CallContext as InterceptorCallContext;
 use Spiral\Interceptors\Context\Target;
 use Spiral\RoadRunner\WorkerInterface;
-use Illuminate\Contracts\Container\Container;
 use Spiral\Interceptors\Handler\InterceptorPipeline;
 
 /**
@@ -43,22 +41,18 @@ final class Server
 {
     /** @var ServiceWrapper[] */
     private array $services = [];
-
-    /**
-     * Interceptors list per service where key is service name
-     * @var array<non-empty-string, list<class-string<InterceptorInterface>|InterceptorInterface>>
-     */
-    private array $interceptors = [];
+    private InterceptorPipeline $pipeline;
 
     /**
      * @param ServerOptions $options
      */
     public function __construct(
         private readonly \Laravel\Octane\Contracts\Worker $worker,
-        private readonly InvokerInterface                 $invoker = new Invoker(),
-        private readonly array                            $options = [],
-        private readonly ?Container                       $container = null,
-    ) {}
+        private readonly array $options = [],
+        private readonly ?ContainerInterface $container = null,
+    ) {
+        $this->pipeline = (new InterceptorPipeline())->withHandler(new CallableHandler());
+    }
 
     /**
      * Register new GRPC service.
@@ -78,26 +72,13 @@ final class Server
      */
     public function registerService(string $interface, ServiceInterface $service, array $interceptors = []): void
     {
-        $normalizedInterceptors = [];
+        $interceptors = \array_map($this->createInterceptor(...), $interceptors);
 
-        foreach ($interceptors as $interceptor) {
-            if (is_string($interceptor) && class_exists($interceptor) && is_subclass_of($interceptor, InterceptorInterface::class)) {
-                $normalizedInterceptors[] = $interceptor;
-            } elseif (is_object($interceptor) && $interceptor instanceof InterceptorInterface) {
-                $normalizedInterceptors[] = $interceptor;
-            } else {
-                throw new ServiceException(sprintf(
-                    'Interceptor must be either a class string implementing %s or an instance of %s, %s given',
-                    InterceptorInterface::class,
-                    InterceptorInterface::class,
-                    is_object($interceptor) ? get_class($interceptor) : gettype($interceptor),
-                ));
-            }
-        }
+        // Prepare Interceptors handler
+        $pipeline = $this->pipeline->withInterceptors(...$interceptors);
+        $service = new ServiceWrapper(new Invoker($pipeline), $interface, $service);
 
-        $service                                 = new ServiceWrapper($this->invoker, $interface, $service);
-        $this->services[$service->getName()]     = $service;
-        $this->interceptors[$service->getName()] = $normalizedInterceptors;
+        $this->services[$service->getName()] = $service;
     }
 
     /**
@@ -115,7 +96,7 @@ final class Server
             }
 
             $this->worker->handleTask(function () use ($request, $worker, $finalize): void {
-                $responseHeaders  = new ResponseHeaders();
+                $responseHeaders = new ResponseHeaders();
                 $responseTrailers = new ResponseTrailers();
 
                 try {
@@ -125,7 +106,7 @@ final class Server
                         \array_merge(
                             $call->context,
                             [
-                                ResponseHeaders::class  => $responseHeaders,
+                                ResponseHeaders::class => $responseHeaders,
                                 ResponseTrailers::class => $responseTrailers,
                             ],
                         ),
@@ -176,62 +157,33 @@ final class Server
      */
     protected function invoke(string $serviceName, string $method, ContextInterface $context, string $body): string
     {
-        if (!isset($this->services[$serviceName])) {
-            throw NotFoundException::create("Service `{$serviceName}` not found.", StatusCode::NOT_FOUND);
-        }
-
-        $service      = $this->services[$serviceName];
-        $interceptors = $this->interceptors[$serviceName] ?? [];
-
-        if (empty($interceptors)) {
-            return $service->invoke($method, $context, $body);
-        }
-
-        $interceptorInstances = [];
-        foreach ($interceptors as $interceptor) {
-            $interceptorInstances[] = $this->createInterceptor($interceptor);
-        }
-
-        $handler = function ($method, $context, $body) use ($service) {
-            return $service->invoke($method, $context, $body);
-        };
-
-        $pipeline = new InterceptorPipeline();
-        $pipeline = $pipeline->withInterceptors(...$interceptorInstances);
-
-        $target      = Target::fromClosure($handler);
-        $callContext = new InterceptorCallContext(
-            $target,
-            [$method, $context, $body],
-            $context->getValues(),
+        \array_key_exists($serviceName, $this->services) or throw NotFoundException::create(
+            "Service `{$serviceName}` not found.",
+            StatusCode::NOT_FOUND,
         );
 
-        return $pipeline->withHandler(new CallableHandler())->handle($callContext);
+        $service = $this->services[$serviceName];
+
+        return $service->invoke($method, $context, $body);
     }
 
     /**
      * Create interceptor instance using container or direct instantiation.
      * Converts resolution errors into ServiceException for proper gRPC reporting.
      *
+     * @param class-string<InterceptorInterface>|object $interceptor
+     *
+     * @throws \Throwable
      */
-    private function createInterceptor(InterceptorInterface|string $interceptor): InterceptorInterface
+    private function createInterceptor(object|string $interceptor): InterceptorInterface
     {
-
-        if ($interceptor instanceof InterceptorInterface) {
-            return $interceptor;
+        if (!\is_string($interceptor)) {
+            return $interceptor instanceof InterceptorInterface
+                ? $interceptor
+                : throw new \InvalidArgumentException("Invalid interceptor instance of class {$interceptor::class}.");
         }
-        try {
-            if ($this->container !== null) {
-                return $this->container->make($interceptor);
-            }
 
-            /** @psalm-suppress InvalidStringClass */
-            return new $interceptor();
-        } catch (BindingResolutionException $e) {
-            throw new ServiceException(\sprintf('Failed to resolve interceptor %s: %s', $interceptor, $e->getMessage()), StatusCode::INTERNAL, $e);
-        } catch (\Throwable $e) {
-            throw new ServiceException(\sprintf('Failed to instantiate interceptor %s: %s', $interceptor, $e->getMessage()), StatusCode::INTERNAL, $e);
-        }
+        return $this->container === null ? new $interceptor() : $this->container->get($interceptor);
     }
 
     private function workerError(WorkerInterface $worker, string $message): void
@@ -250,7 +202,7 @@ final class Server
     private function createGrpcError(GRPCExceptionInterface $e): string
     {
         $status = new Status([
-            'code'    => $e->getCode(),
+            'code' => $e->getCode(),
             'message' => $e->getMessage(),
             'details' => \array_map(
                 static function ($detail) {

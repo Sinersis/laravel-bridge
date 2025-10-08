@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Spiral\RoadRunnerLaravel\Grpc;
 
 use Laravel\Octane\ApplicationFactory;
+use Spiral\Interceptors\InterceptorInterface;
 use Spiral\RoadRunnerLaravel\OctaneWorker;
 use Spiral\RoadRunnerLaravel\WorkerInterface;
 use Spiral\RoadRunnerLaravel\WorkerOptionsInterface;
@@ -24,7 +25,6 @@ final class GrpcWorker implements WorkerInterface
 
         $server = new Server(
             worker: $worker,
-            invoker: new Invoker(),
             options: [
                 'debug' => $app->hasDebugModeEnabled(),
             ],
@@ -34,7 +34,7 @@ final class GrpcWorker implements WorkerInterface
         /** @var array<class-string, class-string> $services */
         $services = $app->get('config')->get('roadrunner.grpc.services', []);
 
-        /** @var array<class-string> $interceptors*/
+        /** @var array<class-string<InterceptorInterface>> $interceptors */
         $interceptors = $app->get('config')->get('roadrunner.grpc.interceptors', []);
 
         foreach ($services as $interface => $service) {
