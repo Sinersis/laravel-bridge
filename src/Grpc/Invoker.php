@@ -35,7 +35,15 @@ final class Invoker implements InvokerInterface
                 $message,
             ]),
         );
-        \assert($result instanceof Message);
+
+        $result instanceof Message or throw new InvokeException(
+            \sprintf(
+                'The result of the Interceptors chain must be an instance of %s, %s given.',
+                Message::class,
+                \get_debug_type($result),
+            ),
+            StatusCode::INTERNAL,
+        );
 
         return self::resultToString($result);
     }
