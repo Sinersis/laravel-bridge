@@ -51,7 +51,11 @@ class AttributesInterceptor implements InterceptorInterface
         }
 
         $methodAttrs = $reflection->getAttributes(InterceptorInterface::class, \ReflectionAttribute::IS_INSTANCEOF);
-        $classAttrs = $reflection->getDeclaringClass()->getAttributes(InterceptorInterface::class, \ReflectionAttribute::IS_INSTANCEOF);
+
+        $reflection instanceof \ReflectionMethod and $classAttrs = $reflection
+            ->getDeclaringClass()
+            ?->getAttributes(InterceptorInterface::class, \ReflectionAttribute::IS_INSTANCEOF);
+        $classAttrs ??= [];
 
         if ($methodAttrs === [] && $classAttrs === []) {
             return $handler->handle($context);
