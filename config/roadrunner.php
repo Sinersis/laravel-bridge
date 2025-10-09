@@ -17,6 +17,19 @@ return [
     'grpc' => [
         'services' => [
             // GreeterInterface::class => new Greeter::class,
+
+            // Service with specific interceptors
+            // AnotherGreeterInterface::class => [
+            //     'service'      => AnotherGreeterService::class,
+            //     'interceptors' => [
+            //         AnotherGreeterServiceInterceptor::class,
+            //     ],
+            // ],
+        ],
+        // Global interceptors - applied to all services
+        'interceptors' => [
+            // \Spiral\RoadRunnerLaravel\Common\Interceptor\AttributesInterceptor::class,
+            // AllServiceInterceptor::class,
         ],
         'clients' => [
             'interceptors' => [
