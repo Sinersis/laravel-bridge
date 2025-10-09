@@ -38,6 +38,7 @@ final class Server
 {
     /** @var ServiceWrapper[] */
     private array $services = [];
+
     private InterceptorPipeline $pipeline;
 
     /**
