@@ -297,7 +297,7 @@ To enable attribute-based interceptors, add the `AttributesInterceptor` to your 
 ```php
 'interceptors' => [
     // ... other global interceptors before
-    \Spiral\RoadRunnerLaravel\Grpc\Interceptor\AttributesInterceptor::class,
+    \Spiral\RoadRunnerLaravel\Common\Interceptor\AttributesInterceptor::class,
     // ... other global interceptors after
 ],
 ```

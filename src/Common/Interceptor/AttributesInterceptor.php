@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-namespace Spiral\RoadRunnerLaravel\Grpc\Interceptor;
+namespace Spiral\RoadRunnerLaravel\Common\Interceptor;
 
 use Spiral\Interceptors\Context\CallContextInterface;
 use Spiral\Interceptors\Handler\InterceptorPipeline;
