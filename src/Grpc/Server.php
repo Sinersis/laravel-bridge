@@ -6,7 +6,6 @@ namespace Spiral\RoadRunnerLaravel\Grpc;
 
 use Google\Protobuf\Any;
 use Google\Rpc\Status;
-use Illuminate\Contracts\Container\BindingResolutionException;
 use Psr\Container\ContainerInterface;
 use Spiral\Interceptors\Handler\CallableHandler;
 use Spiral\Interceptors\InterceptorInterface;
@@ -25,8 +24,6 @@ use Spiral\RoadRunner\GRPC\StatusCode;
 use Spiral\RoadRunner\GRPC\Internal\CallContext;
 use Spiral\RoadRunner\Payload;
 use Spiral\RoadRunner\Worker;
-use Spiral\Interceptors\Context\CallContext as InterceptorCallContext;
-use Spiral\Interceptors\Context\Target;
 use Spiral\RoadRunner\WorkerInterface;
 use Spiral\Interceptors\Handler\InterceptorPipeline;
 
@@ -180,7 +177,7 @@ final class Server
         if (!\is_string($interceptor)) {
             return $interceptor instanceof InterceptorInterface
                 ? $interceptor
-                : throw new \InvalidArgumentException("Invalid interceptor instance of class {$interceptor::class}.");
+                : throw new \InvalidArgumentException(sprintf("Invalid interceptor instance of class %s.", $interceptor::class));
         }
 
         return $this->container === null ? new $interceptor() : $this->container->get($interceptor);
